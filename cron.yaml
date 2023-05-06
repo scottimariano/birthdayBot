@@ -1,0 +1,4 @@
+- name: birthday-bot
+  command: python3 birthday_bot.py
+  schedule: "*/1 * * * *"
+  app: birthdayBot
