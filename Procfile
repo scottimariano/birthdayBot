@@ -1,0 +1,1 @@
+web: python3 birthday_bot.py
