@@ -56,7 +56,7 @@ def run_bot():
 
     client.run(os.getenv("DISCORD_BOT_TOKEN"))
 
-schedule.every().day.at("21:25").do(run_bot)
+schedule.every().day.at("21:35").do(run_bot)
 
 while True:
     schedule.run_pending()
