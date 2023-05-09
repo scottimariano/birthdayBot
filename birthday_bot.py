@@ -19,14 +19,16 @@ creds = None
 creds = service_account.Credentials.from_service_account_info(info=GOOGLE_CREDENTIALS, scopes=SCOPES)
 service = build('sheets', 'v4', credentials=creds)
 sheet = service.spreadsheets()
-result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A2:B20').execute()
-values = result.get('values',[])
 
 # Configura el cliente de Discord
 intents = discord.Intents.default()
 intents.members = True
 
 def run_bot():
+    #Actualizar datos de la hoja
+    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A2:B50').execute()
+    values = result.get('values',[])
+
     # Maneja el evento de inicio de sesión del bot
     client = discord.Client(intents=intents)
     
@@ -51,12 +53,14 @@ def run_bot():
                 if user:
                     message = f'¡Feliz cumpleaños, {user.mention}! 🎉🎂🎁'
                     await channel.send(message)
+                    print(f'Messaged Sended')
 
         await client.close()
 
     client.run(os.getenv("DISCORD_BOT_TOKEN"))
 
-schedule.every().day.at("21:35").do(run_bot)
+# schedule.every().day.at("09:20").do(run_bot)
+schedule.every(30).seconds.do(run_bot)
 
 while True:
     schedule.run_pending()
