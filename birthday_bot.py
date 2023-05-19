@@ -1,7 +1,6 @@
 import os
 import json
 import discord
-# import schedule
 import time
 import datetime
 import asyncio
@@ -52,7 +51,7 @@ async def on_ready():
             print("mensajes task started")
 
 timezone = datetime.timezone(datetime.timedelta(hours=-3))
-scheduled_time = datetime.time(hour=9, minute=17, tzinfo=timezone)
+scheduled_time = datetime.time(hour=9, minute=50, tzinfo=timezone)
 # Maneja el envío de mensajes de cumpleaños
 @tasks.loop(time=scheduled_time, reconnect=True)
 async def mensajes():
@@ -157,7 +156,7 @@ async def add_birthday(ctx):
         try:
             birthday = datetime.datetime.strptime(birthday, '%d/%m/%Y')
         except ValueError:
-            await ctx.reply('El formato de fecha debe ser dd/mm/yyyy. Por favor, intenta nuevamente.')
+            await ctx.reply('El formato de fecha debe ser dd/mm/yyyy. Por favor, intenta nuevamente con "!cumple".')
             return
         
         # Convertir la fecha de cumpleaños a una cadena en formato 'dd/mm/yyyy'
