@@ -237,7 +237,26 @@ async def blue_command(ctx):
 @bot.command(name='apagar', hidden=True)
 @commands.has_permissions(administrator=True)
 async def shutdown(ctx):
-    print("Apagando el bot...")
-    await bot.close()
+    # Mensaje de confirmación
+    confirmation_message = "¿Estás seguro de que quieres apagarme? ¡No quiero irme! 😢"
+    await ctx.send(confirmation_message)
+
+    def check(message):
+        return message.author == ctx.author and message.channel == ctx.channel
+
+    try:
+        response = await bot.wait_for('message', timeout=15, check=check)
+
+        if response.content.lower() == 'sí' or response.content.lower() == 'si':
+
+            await ctx.send("¡Adiós, mundo cruel! 😭")
+            print("Apagando el bot local...")
+            await bot.close()
+        else:
+            await ctx.send("¡Uf, casi me matas! ¡Gracias por salvarme! 😄")
+
+    except asyncio.TimeoutError:
+        await ctx.send("Demoraste demasiado. ¡Ya es demasiado tarde para apagarme! 😈")
+
 # Inicia la conexión del bot
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
