@@ -1,15 +1,17 @@
 import os
 import json
 import discord
-import schedule
+# import schedule
 import time
 import datetime
+import asyncio
+import messages
+import requests
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from dotenv import load_dotenv
 from discord.ext import tasks, commands
-import messages
 
 
 load_dotenv()
@@ -50,7 +52,7 @@ async def on_ready():
             print("mensajes task started")
 
 timezone = datetime.timezone(datetime.timedelta(hours=-3))
-scheduled_time = datetime.time(hour=15, minute=44, tzinfo=timezone)
+scheduled_time = datetime.time(hour=9, minute=17, tzinfo=timezone)
 # Maneja el envío de mensajes de cumpleaños
 @tasks.loop(time=scheduled_time, reconnect=True)
 async def mensajes():
@@ -64,7 +66,8 @@ async def mensajes():
         values = result.get('values',[])
 
         # Obtiene la lista de usuarios en el servidor de Discord
-        channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
+        # channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
+        channel = discord.utils.get(guild.text_channels, name='general')
         members = guild.members
 
         # Itera sobre los datos y envía mensajes personalizados de cumpleaños a los usuarios correspondientes
@@ -89,9 +92,13 @@ async def on_guild_join(guild_conected):
     global guild
     guild = guild_conected
     
-    channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
+    # channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
+    channel = discord.utils.get(guild.text_channels, name='general')
     
-    message = '¡Soy Bot birthday! 🎉🎂🎁'
+    async with channel.typing():
+        await asyncio.sleep(10)
+        
+    message = '¡Soy Birthday Guru! :man_mage::birthday:\n Mi misión es que nadie se olvide de un cumpleaños! \nSi lo deseas, escribe "!help" para ver como puedo ayudarte.'
     await channel.send(message)
     
     if not mensajes.is_running():
@@ -106,16 +113,36 @@ async def on_guild_remove(guild):
     print("mensajes task stopped")
 
 @bot.command()
-async def help(context):
-    await context.send("Custom help command")
+async def help(ctx):
 
-@bot.command(name='hola', help='Ante todo la buena educación, si lo deseas Birthday guru te saludará.')
+    async with ctx.typing():
+        await asyncio.sleep(2)
+
+    embed = discord.Embed(title='Birthday Guru', description='¡Hola! Soy Birthday Guru y puedo ayudar para que nadie se olvide de un cumpleaños.', color=discord.Color.blue())
+    
+    commands_list = [
+        ('!hola', 'Ante todo los buenos modales.'),
+        ('!cumple', 'Avisame cuando es tu cumple.'),
+        ('!blue', 'Siempre es bueno estar informado.')
+    ]
+    
+    commands_description = '\n'.join([f'`{command[0]}`: {command[1]}' for command in commands_list])
+    
+    embed.add_field(name='Comandos', value=commands_description, inline=False)
+    
+    await ctx.send(embed=embed)
+
+@bot.command(name='hola', help='Ante todo la buena educación.')
 async def hello(ctx):
     response = f"Hola {ctx.author.name} un honor saludarte! estoy a tu servicio. \nPara más información, puedes enviar un mesanje con el texto \"!help\" y te ayudaré"
     await ctx.reply(response)
 
-@bot.command(name='cumple', help='Ante todo la buena educación, si lo deseas Birthday guru te saludará y te preguntará por tu cumpleaños.')
+@bot.command(name='cumple', help='Si lo deseas Birthday Guru recordará tu cumpleaños para avisar en el canal.')
 async def add_birthday(ctx):
+    
+    async with ctx.typing():
+        await asyncio.sleep(2)
+
     response = f"Hola {ctx.author.name}, como estas?\n¿Cuál es tu fecha de cumpleaños? Por favor, responde con el formato dd/mm/yyyy."
     await ctx.reply(response)
     
@@ -133,9 +160,12 @@ async def add_birthday(ctx):
             await ctx.reply('El formato de fecha debe ser dd/mm/yyyy. Por favor, intenta nuevamente.')
             return
         
+        # Convertir la fecha de cumpleaños a una cadena en formato 'dd/mm/yyyy'
+        birthday_str = birthday.strftime('%d/%m/%Y')
+
         # Crear los datos para agregar a la hoja de cálculo
         data = [
-            [ctx.author.name, birthday]
+            [ctx.author.name, birthday_str]
         ]
         
         # Obtener la última fila vacía en la hoja de cálculo
@@ -148,12 +178,12 @@ async def add_birthday(ctx):
         
         # Actualizar la hoja de cálculo con los nuevos datos
         if result.get('updatedRows') == 1:
-            await ctx.reply(f'Tu cumpleaños ({birthday}) ha sido registrado exitosamente en la hoja de cálculo.')
+            await ctx.reply(f'Ya recuerdo tu cumpleaños ({birthday_str}). Cuando llegué el día avisaré en el canal.')
         else:
-            await ctx.reply('Ocurrió un error al registrar tu cumpleaños. Por favor, intenta nuevamente.')
+            await ctx.reply('Ocurrió un error al registrar tu cumpleaños. Por favor, intenta nuevamente con "!cumple".')
         
     except asyncio.TimeoutError:
-        await ctx.reply('Tiempo de espera agotado. Por favor, intenta nuevamente más tarde.')
+        await ctx.reply('Tiempo de espera agotado. Por favor, intenta nuevamente con "!cumple".')
 
 @bot.command(name='horario', hidden=True)
 @commands.has_permissions(administrator=True)
@@ -176,14 +206,34 @@ async def config_time(ctx):
         if mensajes and mensajes.is_running():
             # Detener la tarea 'mensajes'
             mensajes.change_interval(time=new_time_with_timezone)
-            print("schedule updated to " + new_time_with_timezone)
-
+            print("schedule updated to " + str(new_time))
 
         await ctx.send(f"La hora de los saludos diarios se ha actualizado correctamente. Nueva hora: {new_time_str}")
     except asyncio.TimeoutError:
         await ctx.send("No se ha recibido una respuesta. La configuración de hora no ha sido modificada.")
 
+@bot.command(name='blue', help='Siempre es bueno estar informado.')
+async def blue_command(ctx):
+    url = 'https://api.bluelytics.com.ar/v2/latest'
+    
+    try:
+        response = requests.get(url)
+        data = response.json()
+        
+        value_sell = data['blue']['value_sell']
+        value_buy = data['blue']['value_buy']
+        
+        embed = discord.Embed(title='Valor del dólar blue', color=discord.Color.blue())
+        embed.add_field(name='Venta', value=f'${value_sell}', inline=False)
+        embed.add_field(name='Compra', value=f'${value_buy}', inline=False)
+        
+        async with ctx.typing():
+            await asyncio.sleep(2)
 
+        await ctx.send(embed=embed)
+        
+    except requests.exceptions.RequestException as e:
+        await ctx.send('Ocurrió un error al obtener los datos.')
 
 # Inicia la conexión del bot
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
