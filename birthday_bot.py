@@ -234,5 +234,10 @@ async def blue_command(ctx):
     except requests.exceptions.RequestException as e:
         await ctx.send('Ocurrió un error al obtener los datos.')
 
+@bot.command(name='apagar', hidden=True)
+@commands.has_permissions(administrator=True)
+async def shutdown(ctx):
+    print("Apagando el bot...")
+    await bot.close()
 # Inicia la conexión del bot
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
