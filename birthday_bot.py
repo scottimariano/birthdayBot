@@ -51,7 +51,7 @@ async def on_ready():
             print("mensajes task started")
 
 timezone = datetime.timezone(datetime.timedelta(hours=-3))
-scheduled_time = datetime.time(hour=9, minute=50, tzinfo=timezone)
+scheduled_time = datetime.time(hour=10, minute=20, tzinfo=timezone)
 # Maneja el envío de mensajes de cumpleaños
 @tasks.loop(time=scheduled_time, reconnect=True)
 async def mensajes():
