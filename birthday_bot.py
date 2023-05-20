@@ -164,7 +164,7 @@ async def add_birthday(ctx):
         await asyncio.sleep(1)
 
     username = ctx.author.name
-    registered_members = get_registered_members()
+    registered_members = get_registered_members(ctx.guild)
 
     if username in registered_members:
         await ctx.reply('Ya sé cuando es tu cumple, tranquilo que no voy a olvidarlo.')
