@@ -49,15 +49,16 @@ async def on_ready():
             print("mensajes task started")
 
 timezone = datetime.timezone(datetime.timedelta(hours=-3))
-scheduled_time = datetime.time(hour=18, minute=3, tzinfo=timezone)
+scheduled_time = datetime.time(hour=9, minute=30, tzinfo=timezone)
 # Maneja el envío de mensajes de cumpleaños
 @tasks.loop(time=scheduled_time, reconnect=True)
 async def mensajes():
     if bot.guilds:
+        # Actualiza los datos de la hoja de cálculo
+        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A2:B50').execute()
+        values = result.get('values',[])
+        
         for guild in bot.guilds:
-            # Actualiza los datos de la hoja de cálculo
-            result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A2:B50').execute()
-            values = result.get('values',[])
 
             # Obtiene la lista de usuarios en el servidor de Discord
             # channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
@@ -84,12 +85,9 @@ async def mensajes():
 @bot.event
 async def on_guild_join(guild_conected):
     print(f'Joined to {guild_conected.name}')
-    
-    global guild
-    guild = guild_conected
-    
-    # channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
-    channel = discord.utils.get(guild.text_channels, name='general')
+        
+    # channel = discord.utils.get(guild_conected.text_channels, name='🔷pigma-comunicacion')
+    channel = discord.utils.get(guild_conected.text_channels, name='general')
     
     async with channel.typing():
         await asyncio.sleep(10)
