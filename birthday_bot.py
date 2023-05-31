@@ -5,9 +5,9 @@ import time
 import datetime
 import asyncio
 import messages
+import gspread
 import requests
 from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from dotenv import load_dotenv
 from discord.ext import tasks, commands
@@ -16,26 +16,27 @@ from discord.ext import tasks, commands
 load_dotenv()
 
 
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 SPREADSHEET_ID = os.getenv("SPREADSHEET_ID")
 GOOGLE_CREDENTIALS = json.loads(os.getenv("GOOGLE_CREDENTIALS"))
 creds = None
 creds = service_account.Credentials.from_service_account_info(info=GOOGLE_CREDENTIALS, scopes=SCOPES)
-service = build('sheets', 'v4', credentials=creds)
-sheet = service.spreadsheets()
+gc = gspread.authorize(creds)
+sheet = gc.open("Cumpleaños")
 
-# Configura el cliente de Discord
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='!', help_command=None, intents=intents)
+
 # Maneja el evento de inicio de sesión del bot
 @bot.event
 async def on_ready():
 
-    # Comprobar si el bot está conectado a algún servidor
     if not bot.guilds:
         print("Bot is not connected to any guilds.")
 
@@ -48,46 +49,15 @@ async def on_ready():
             mensajes.start() #If the task is not already running, start it.
             print("mensajes task started")
 
-timezone = datetime.timezone(datetime.timedelta(hours=-3))
-scheduled_time = datetime.time(hour=9, minute=30, tzinfo=timezone)
-# Maneja el envío de mensajes de cumpleaños
-@tasks.loop(time=scheduled_time, reconnect=True)
-async def mensajes():
-    if bot.guilds:
-        # Actualiza los datos de la hoja de cálculo
-        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A2:B50').execute()
-        values = result.get('values',[])
-        
-        for guild in bot.guilds:
-
-            # Obtiene la lista de usuarios en el servidor de Discord
-            # channel = discord.utils.get(guild.text_channels, name='🔷pigma-comunicacion')
-            channel = discord.utils.get(guild.text_channels, name='general')
-            members = guild.members
-
-            # Itera sobre los datos y envía mensajes personalizados de cumpleaños a los usuarios correspondientes
-            for row in values:
-                name = row[0]
-                date_str = row[1]
-                date_obj = datetime.datetime.strptime(date_str, '%d/%m/%Y')
-
-                # Verifica si es el cumpleaños del usuario hoy
-                if date_obj.month == datetime.datetime.today().month and date_obj.day == datetime.datetime.today().day:
-                    user = discord.utils.find(lambda u: u.name == name, members)
-                    if user:
-                        message = messages.generate_greeting(user)
-                        await channel.send(message)
-                        print('Messaged Sended')
-    else:
-        print("El bot no está conectado a ningún servidor")
 
 # Maneja el evento de unirse a un servidor
 @bot.event
 async def on_guild_join(guild_conected):
     print(f'Joined to {guild_conected.name}')
-        
-    # channel = discord.utils.get(guild_conected.text_channels, name='🔷pigma-comunicacion')
-    channel = discord.utils.get(guild_conected.text_channels, name='general')
+
+    set_or_create_worksheet(guild_conected.name, guild_conected.id)
+
+    channel = channel = guild_conected.text_channels[0]
     
     async with channel.typing():
         await asyncio.sleep(10)
@@ -109,22 +79,50 @@ async def on_guild_remove(guild):
         mensajes.stop()
         print("mensajes task stopped")
 
-def get_registered_members(guild):
-    # Obtener los datos de la hoja de cálculo
-    result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A3:A').execute()
-    values = result.get('values', [])
 
-    # Obtener la lista de nombres de usuarios registrados
-    registered_members = [row[0] for row in values]
+timezone = datetime.timezone(datetime.timedelta(hours=-3))
+scheduled_time = datetime.time(hour=12, minute=41, tzinfo=timezone)
+# Maneja el envío de mensajes de cumpleaños
+@tasks.loop(time=scheduled_time, reconnect=True)
+async def mensajes():
+    if bot.guilds:
+        
+        for guild in bot.guilds:
 
-    # Filtrar los miembros registrados que son parte del canal actual
-    members_in_channel = []
-    for member_name in registered_members:
-        member = discord.utils.get(guild.members, name=member_name)
-        if member:
-            members_in_channel.append(member_name)
+            worksheet = set_or_create_worksheet(guild.name, guild.id)
+            channel = discord.utils.get(guild.text_channels, name=worksheet.acell('E1').value)
+            if not channel:
+                channel = guild.text_channels[0]
 
-    return members_in_channel
+            members = guild.members
+
+            values = worksheet.get("A2:B")
+
+            for row in values:
+                name = row[0]
+                date_str = row[1]
+                date_obj = datetime.datetime.strptime(date_str, '%d/%m/%Y')
+
+                if date_obj.month == datetime.datetime.today().month and date_obj.day == datetime.datetime.today().day:
+                    user = discord.utils.find(lambda u: u.name == name, members)
+                    if user:
+                        message = messages.generate_greeting(user)
+                        await channel.send(message + "@everyone")
+                        print(f'Messaged Sended to {user.name} in {guild.name}')
+    else:
+        print("El bot no está conectado a ningún servidor")
+
+
+# Return worksheet for the_channel
+def set_or_create_worksheet(guild_name, guild_id):
+    try:
+        worksheet = sheet.worksheet(f"{guild_name} {guild_id}")
+    except gspread.exceptions.WorksheetNotFound:
+        worksheet = sheet.worksheet("Base")
+        worksheet.duplicate(new_sheet_name=f"{guild_name} {guild_id}")
+        worksheet = sheet.worksheet(f"{guild_name} {guild_id}")
+    
+    return worksheet
 
 
 @bot.command()
@@ -162,7 +160,10 @@ async def add_birthday(ctx):
         await asyncio.sleep(1)
 
     username = ctx.author.name
-    registered_members = get_registered_members(ctx.guild)
+    
+    worksheet = set_or_create_worksheet(ctx.guild.name, ctx.guild.id)
+
+    registered_members = worksheet.col_values(1)
 
     if username in registered_members:
         await ctx.reply('Ya sé cuando es tu cumple, tranquilo que no voy a olvidarlo.')
@@ -186,28 +187,22 @@ async def add_birthday(ctx):
             
             # Convertir la fecha de cumpleaños a una cadena en formato 'dd/mm/yyyy'
             birthday_str = f"{birthday.day}/{birthday.month}"
-
-            # Crear los datos para agregar a la hoja de cálculo
-            data = [
-                [ctx.author.name, birthday_str]
-            ]
             
-            # Obtener la última fila vacía en la hoja de cálculo
-            result = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range='Hoja 1!A:B').execute()
-            values = result.get('values', [])
-            last_row = len(values) + 1
+            try:
+                # Obtener la última fila vacía en la hoja de cálculo
+                next_row = len(worksheet.col_values(1)) + 1
 
-            # Actualizar la hoja de cálculo con los nuevos datos
-            result = sheet.values().update(spreadsheetId=SPREADSHEET_ID, range=f'Hoja 1!A{last_row}:B{last_row}', valueInputOption='USER_ENTERED', body={'values': data}).execute()
-            
-            # Actualizar la hoja de cálculo con los nuevos datos
-            if result.get('updatedRows') == 1:
+                # Actualizar la hoja de cálculo con los nuevos datos
+                worksheet.update_cell(next_row, 1, ctx.author.name)
+                worksheet.update_cell(next_row, 2, birthday_str)
+
                 await ctx.reply('Ok! trataré de acordarme... Cuando llegue el día avisaré en el canal.')
-            else:
+            except gspread.exceptions.APIError(response):
                 await ctx.reply('Ocurrió un error al registrar tu cumpleaños. Por favor, intenta nuevamente con "!cumple".')
             
         except asyncio.TimeoutError:
             await ctx.reply('Tiempo de espera agotado. Por favor, intenta nuevamente con "!cumple".')
+
 
 @bot.command(name='horario', hidden=True)
 @commands.has_permissions(administrator=True)
@@ -238,28 +233,6 @@ async def config_time(ctx):
     except MissingPermissions:
         await ctx.send("¡Ups! Parece que no tienes los permisos de administrador para ejecutar este comando.")
 
-@bot.command(name='blue', help='Siempre es bueno estar informado.')
-async def blue_command(ctx):
-    url = 'https://api.bluelytics.com.ar/v2/latest'
-    
-    try:
-        response = requests.get(url)
-        data = response.json()
-        
-        value_sell = data['blue']['value_sell']
-        value_buy = data['blue']['value_buy']
-        
-        async with ctx.typing():
-            await asyncio.sleep(1)
-
-        await ctx.send(f"¡Ey! Te paso los precios tengo ahora. Me los pasó el amigo de un amigo:\n\n"
-                       f":dollar: Venta:  ${value_sell}\n"
-                       f":dollar: Compra: ${value_buy}\n"
-                       f"¡Este precio es solo para vos...!")
-        
-    except requests.exceptions.RequestException as e:
-        await ctx.send('Che, disculpá, pero no pude obtener los precios en este momento. ¡Intentá de nuevo más tarde!')
-
 
 @bot.command(name='apagar', hidden=True)
 @commands.has_permissions(administrator=True)
@@ -287,16 +260,84 @@ async def shutdown(ctx):
         await ctx.send("¡Ups! Parece que no tienes los permisos de administrador para ejecutar este comando.")
 
 
+@bot.command(name='canal', hidden=True)
+@commands.has_permissions(administrator=True)
+async def canal(ctx):
+
+    worksheet = set_or_create_worksheet(ctx.guild.name, ctx.guild.id)
+
+    text_channels = ctx.guild.text_channels
+
+    channel_names = [channel.name for channel in text_channels]
+
+    message = "Elige un canal para enviar los mensajes eligiendo el número correspondiente:\n\n"
+    for i, name in enumerate(channel_names):
+        message += f"{i+1}. {name}\n"
+
+    await ctx.send(message)
+
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
+
+    while True:
+        try:
+
+            user_response = await bot.wait_for('message', check=check, timeout=30)
+
+            channel_index = int(user_response.content) - 1
+
+            selected_channel = text_channels[channel_index]
+
+            worksheet.update('E1', selected_channel.name)
+            print(f"Channel updated in {ctx.guild.name}: {selected_channel.name}")
+
+            await ctx.send(f"De ahora en adelante, solo enviaré mensajes en el canal {selected_channel.mention}.")
+            break
+
+        except (ValueError, IndexError):
+            await ctx.send("Opción inválida. Por favor, elegí un número del listado")
+        
+        except asyncio.TimeoutError:
+            await ctx.send("Tiempo de espera agotado.")
+
 
 @bot.command(name='listado', help='Muestra el listado de integrantes del canal ya registrados en la base de datos.')
 async def show_registered_members(ctx):
-    registered_members = get_registered_members(ctx.guild)
+
+    worksheet = set_or_create_worksheet(ctx.guild.name, ctx.guild.id)
+    registered_members = worksheet.get("A2:A")
 
     if not registered_members:
-        await ctx.reply('No hay integrantes registrados en la planilla.')
+        await ctx.reply('No hay integrantes registrados en la planilla.\nPuedes incluirte escribiendo "!cumple"')
     else:
-        member_list = "\n - ".join(registered_members)
-        await ctx.reply(f'Integrantes registrados:\n - {member_list}')
+        message = "Integrantes registrados:\n"
+        for item in registered_members:
+            message += "- " + item[0] + "\n"
+        await ctx.reply(message)
+
+
+@bot.command(name='blue', help='Siempre es bueno estar informado.')
+async def blue_command(ctx):
+    url = 'https://api.bluelytics.com.ar/v2/latest'
+    
+    try:
+        response = requests.get(url)
+        data = response.json()
+        
+        value_sell = data['blue']['value_sell']
+        value_buy = data['blue']['value_buy']
+        
+        async with ctx.typing():
+            await asyncio.sleep(1)
+
+        await ctx.send(f"¡Ey! Te paso los precios tengo ahora. Me los pasó el amigo de un amigo:\n\n"
+                       f":dollar: Venta:  ${value_sell}\n"
+                       f":dollar: Compra: ${value_buy}\n"
+                       f"¡Este precio es solo para vos...!")
+        
+    except requests.exceptions.RequestException as e:
+        await ctx.send('Che, disculpá, pero no pude obtener los precios en este momento. ¡Intentá de nuevo más tarde!')
+
 
 # Inicia la conexión del bot
 bot.run(os.getenv("DISCORD_BOT_TOKEN"))
