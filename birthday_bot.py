@@ -135,7 +135,7 @@ async def help(ctx):
     
     commands_list = [
         ('!hola', 'Ante todo los buenos modales.'),
-        ('!cumple', 'Avisame cuando es tu cumple.'),
+        ('!cumple', 'Avisame cuando es tu cumple. y yo me encargo que nadie se olvide.'),
         ('!listado', 'Te cuento quienes ya confian en mi para recordar su cumple.'),
         ('!blue', 'Siempre es bueno estar informado.')
     ]
@@ -227,7 +227,7 @@ async def config_time(ctx):
             mensajes.change_interval(time=new_time_with_timezone)
             print("schedule updated to " + str(new_time))
 
-        await ctx.send(f"La hora de los saludos diarios se ha actualizado correctamente. Nueva hora: {new_time_str}")
+        await ctx.send(f"La hora de los saludos de cumpleaños se ha actualizado correctamente. Nueva hora: {new_time_str}")
     except asyncio.TimeoutError:
         await ctx.send("No se ha recibido una respuesta. La configuración de hora no ha sido modificada.")
     except MissingPermissions:
@@ -270,7 +270,7 @@ async def canal(ctx):
 
     channel_names = [channel.name for channel in text_channels]
 
-    message = "Elige un canal para enviar los mensajes eligiendo el número correspondiente:\n\n"
+    message = "Elige un canal para enviar los mensajes de cumpleaños, seleccionando el número correspondiente:\n\n"
     for i, name in enumerate(channel_names):
         message += f"{i+1}. {name}\n"
 
@@ -291,7 +291,7 @@ async def canal(ctx):
             worksheet.update('E1', selected_channel.name)
             print(f"Channel updated in {ctx.guild.name}: {selected_channel.name}")
 
-            await ctx.send(f"De ahora en adelante, solo enviaré mensajes en el canal {selected_channel.mention}.")
+            await ctx.send(f"De ahora en adelante, los mensajes de cumpleaños los enviaré en el canal {selected_channel.mention}.")
             break
 
         except (ValueError, IndexError):
@@ -308,7 +308,7 @@ async def show_registered_members(ctx):
     registered_members = worksheet.get("A2:A")
 
     if not registered_members:
-        await ctx.reply('No hay integrantes registrados en la planilla.\nPuedes incluirte escribiendo "!cumple"')
+        await ctx.reply('No hay integrantes registrados en la planilla de cumpleaños.\nPuedes incluirte escribiendo "!cumple"')
     else:
         message = "Integrantes registrados:\n"
         for item in registered_members:
