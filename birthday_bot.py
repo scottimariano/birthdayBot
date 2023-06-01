@@ -298,7 +298,8 @@ async def canal(ctx):
             await ctx.send("Opción inválida. Por favor, elegí un número del listado")
         
         except asyncio.TimeoutError:
-            await ctx.send("Tiempo de espera agotado.")
+            await ctx.send("Tiempo de espera agotado. Inicia nuevamente con !canal")
+            break
 
 
 @bot.command(name='listado', help='Muestra el listado de integrantes del canal ya registrados en la base de datos.')
