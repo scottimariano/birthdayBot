@@ -81,7 +81,7 @@ async def on_guild_remove(guild):
 
 
 timezone = datetime.timezone(datetime.timedelta(hours=-3))
-scheduled_time = datetime.time(hour=10, minute=30, tzinfo=timezone)
+scheduled_time = datetime.time(hour=15, minute=15, tzinfo=timezone)
 # Maneja el envío de mensajes de cumpleaños
 @tasks.loop(time=scheduled_time, reconnect=True)
 async def mensajes():
