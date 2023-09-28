@@ -169,7 +169,7 @@ async def add_birthday(ctx):
         await ctx.reply('Ya sé cuando es tu cumple, tranquilo que no voy a olvidarlo.')
     else:
         response = f"Hola {ctx.author.name}, como estas?\n¿Cuándo es tu cumple? Por favor, responde con el formato dd/mm."
-        await ctx.reply(response)
+        await ctx.author.send(response)
         
         def check(message):
             return message.author == ctx.author and message.channel == ctx.channel
@@ -182,7 +182,7 @@ async def add_birthday(ctx):
             try:
                 birthday = datetime.datetime.strptime(birthday, '%d/%m')
             except ValueError:
-                await ctx.reply('El formato de fecha debe ser dd/mm. Por favor, intenta nuevamente con "!cumple".')
+                await ctx.author.send('El formato de fecha debe ser dd/mm. Por favor, intenta nuevamente con "!cumple".')
                 return
             
             # Convertir la fecha de cumpleaños a una cadena en formato 'dd/mm/yyyy'
@@ -196,12 +196,12 @@ async def add_birthday(ctx):
                 worksheet.update_cell(next_row, 1, ctx.author.name)
                 worksheet.update_cell(next_row, 2, birthday_str)
 
-                await ctx.reply('Ok! trataré de acordarme... Cuando llegue el día avisaré en el canal.')
+                await ctx.author.send('Ok! trataré de acordarme... Cuando llegue el día avisaré en el canal.')
             except gspread.exceptions.APIError(response):
-                await ctx.reply('Ocurrió un error al registrar tu cumpleaños. Por favor, intenta nuevamente con "!cumple".')
+                await ctx.author.send('Ocurrió un error al registrar tu cumpleaños. Por favor, intenta nuevamente con "!cumple".')
             
         except asyncio.TimeoutError:
-            await ctx.reply('Tiempo de espera agotado. Por favor, intenta nuevamente con "!cumple".')
+            await ctx.author.send('Tiempo de espera agotado. Por favor, intenta nuevamente con "!cumple".')
 
 
 @bot.command(name='horario', hidden=True)
