@@ -160,7 +160,6 @@ async def add_birthday(ctx):
         await asyncio.sleep(1)
 
     username = ctx.author.name
-    
     worksheet = set_or_create_worksheet(ctx.guild.name, ctx.guild.id)
 
     registered_members = worksheet.col_values(1)
@@ -168,11 +167,12 @@ async def add_birthday(ctx):
     if username in registered_members:
         await ctx.reply('Ya sé cuando es tu cumple, tranquilo que no voy a olvidarlo.')
     else:
+        await ctx.reply('Te mande un DM, :wink:.')
         response = f"Hola {ctx.author.name}, como estas?\n¿Cuándo es tu cumple? Por favor, responde con el formato dd/mm."
         await ctx.author.send(response)
         
         def check(message):
-            return message.author == ctx.author and message.channel == ctx.channel
+            return message.author == ctx.author and isinstance(message.channel, discord.DMChannel)
         
         try:
             message = await bot.wait_for('message', check=check, timeout=60)  # Espera la respuesta del usuario durante 60 segundos
@@ -196,7 +196,7 @@ async def add_birthday(ctx):
                 worksheet.update_cell(next_row, 1, ctx.author.name)
                 worksheet.update_cell(next_row, 2, birthday_str)
 
-                await ctx.author.send('Ok! trataré de acordarme... Cuando llegue el día avisaré en el canal.')
+                await ctx.author.send('Ok! trataré de acordarme... Cuando llegue el día avisaré en el canal.\nYa puedes eliminar este chat.')
             except gspread.exceptions.APIError(response):
                 await ctx.author.send('Ocurrió un error al registrar tu cumpleaños. Por favor, intenta nuevamente con "!cumple".')
             
